@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welearn_helper | Web 控制台</title>
+  
+  <!-- 强制阻止 HTML 页面自身被浏览器缓存 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <script src="common.js"></script>
+
+  <script>
+    (function() {
+      var css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'styles.css?t=' + new Date().getTime();
+      document.head.appendChild(css);
+    })();
+  </script>
+</head>
+<body>
+  <div id="loadingOverlay" class="modal-overlay hidden" style="z-index: 999; flex-direction: column;">
+    <div class="spinner"></div>
+    <div style="margin-top: 20px; font-weight: bold; color: var(--accent);">正在同步处理，请勿重复操作...</div>
+  </div>
+
+  <div id="announceModal" class="modal-overlay hidden" style="z-index: 900;">
+    <div class="modal-content" style="text-align: center; padding: 30px;">
+      <h2 style="color: var(--accent-2); margin-top: 0;">📜 网站公告</h2>
+      <p id="announceText" style="line-height: 1.6; text-align: left; max-height: 60vh; overflow-y: auto;"></p>
+      <button id="announceBtn" class="primary-btn" disabled style="opacity: 0.5; width: 100%;">我已阅读 (5s)</button>
+    </div>
+  </div>
+
+  <div class="background">
+    <span class="orb orb-a"></span><span class="orb orb-b"></span><span class="grid"></span>
+  </div>
+
+  <main class="shell">
+    <header class="hero" style="margin-bottom: 5px;">
+      <div class="visitor-banner" style="grid-column: 1 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.88rem; color: var(--muted); margin-bottom: 12px; background: rgba(255,255,255,0.03); padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); word-wrap: break-word; word-break: break-all;">
+        <span id="visitorGreeting">正在获取归属地...</span>
+        <span>
+            总人数 <strong id="statTotalUsers" style="color:#fff">0</strong> | 
+            访问 <strong id="statVisits" style="color:var(--text)">0</strong> 次 | 
+            已成功登录 <strong id="statLogins" style="color:var(--accent)">0</strong> 次 | 
+            已成功运行 <strong id="statRuns" style="color:var(--accent-2)">0</strong> 次
+        </span>
+      </div>
+
+      <div>
+        <p class="eyebrow">WE刷课控制台</p>
+        <h1>
+          <img src="favicon.ico" alt="Logo" style="height: 0.9em; width: auto; vertical-align: baseline; margin-right: 12px; border-radius: 8px;">
+          Welearn 高效学习
+        </h1>
+        <p class="lead">你是否因为WE Learn刷课而烦恼，别担心，红温炉祝您一臂之力，让您一飞冲天。</p>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card__stat"><span id="statWorkflow">2</span><label>工作流</label></div>
+        <div class="hero-card__stat hero-card__stat--accent"><span id="statReady">0</span><label>已就绪</label></div>
+      </div>
+    </header>
+
+    <section class="notice-bar">
+      <div>
+        <strong>运行提示</strong>
+        <p>支持账号密码登录和 Cookie 登录。选择课程后即可运行。</p>
+      </div>
+      <div class="notice-pill">支持多选单元 / 随机范围 / 日志导出</div>
+    </section>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <button class="mode-tab is-active" data-mode="accuracy" type="button">
+          <span>刷完成度 / 正确率</span><small>对选定单元提交正确率</small>
+        </button>
+        <button class="mode-tab" data-mode="time" type="button">
+          <span>刷时长</span><small>对选定单元模拟学习时长</small>
+        </button>
+
+        <div class="sidebar-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+             <h2 style="margin:0;">连接设置</h2>
+             <button id="logoutBtn" class="ghost-btn hidden" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);">退出登录</button>
+          </div>
+          
+          <label><span>网页登录名</span><input id="username" type="text" placeholder="请输入用户名" autocomplete="username" /></label>
+          <label><span>密码</span><input id="password" type="password" placeholder="请输入密码" autocomplete="current-password" /></label>
+          <button id="loginBtn" class="primary-btn" type="button">账号登录</button>
+          
+          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 18px 0;">
+          
+          <label><span>快捷 Cookie 登录</span><input id="cookieInput" type="text" placeholder="标准格式 Cookie" /></label>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+             <button id="formatCookieBtn" class="ghost-btn" type="button" style="flex:1; padding: 10px 5px;">格式化 JSON</button>
+             <button id="splitCookieBtn" class="ghost-btn" type="button" style="flex:1; padding: 10px 5px;">Cookie 分割</button>
+          </div>
+          <button id="cookieBtn" class="primary-btn" type="button" style="background: linear-gradient(135deg, #f2b705, #e08b00); margin-top: 8px;">注入 Cookie 登录</button>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        
+        <div class="panel">
+          <div class="panel-header" style="margin-bottom: 5px;">
+            <div><p class="panel-kicker">第一步</p><h2>我的课程</h2></div>
+            <div id="courseSummary" class="summary-box">尚未加载</div>
+          </div>
+          <div id="courseList" class="list-box empty-state">等待登录后加载课程...</div>
+        </div>
+
+        <div class="panel" id="accuracyPanel">
+          <div class="panel-header">
+            <div><p class="panel-kicker">当前模式</p><h2>刷完成度 / 正确率</h2></div>
+            <span class="badge">accuracy</span>
+          </div>
+
+          <div class="grid-form">
+            <label class="wide"><span>单元编号 (按住 Ctrl 多选)</span><select id="accuracyUnits" multiple size="4" style="height: 100px;"><option value="-1">请先在上方加载课程</option></select></label>
+            <label class="wide">
+              <span>正确率模式</span>
+              <select id="accuracyMode"><option value="range">随机范围</option><option value="fixed">固定正确率</option></select>
+            </label>
+            <label id="accuracyLabelA"><span id="accuracyTextA">固定值</span><input id="accuracyValueA" type="number" /></label>
+            <label id="accuracyLabelB" class="hidden"><span>随机上限</span><input id="accuracyValueB" type="number" /></label>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 14px;">
+              <button id="runAccuracyBtn" class="primary-btn" type="button" style="flex: 1; margin-top: 0;">开始执行正确率流程</button>
+              <button id="stopAccuracyBtn" class="primary-btn hidden" type="button" style="flex: 1; margin-top: 0; background: #ff7a7a; color: #fff;">🛑 终止运行</button>
+          </div>
+        </div>
+
+        <div class="panel hidden" id="timePanel">
+          <div class="panel-header">
+            <div><p class="panel-kicker">当前模式</p><h2>刷时长</h2></div>
+            <span class="badge">time</span>
+          </div>
+
+          <div class="grid-form">
+            <label class="wide"><span>单元编号 (按住 Ctrl 多选)</span><select id="timeUnits" multiple size="4" style="height: 100px;"><option value="-1">请先在上方加载课程</option></select></label>
+            <label class="wide">
+              <span>时长模式</span>
+              <select id="timeMode"><option value="range">随机范围 (秒)</option><option value="fixed">固定时长 (秒)</option></select>
+            </label>
+            <label id="timeLabelA"><span id="timeTextA">固定值</span><input id="timeValueA" type="number" /></label>
+            <label id="timeLabelB" class="hidden"><span>随机上限</span><input id="timeValueB" type="number" /></label>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 14px;">
+              <button id="runTimeBtn" class="primary-btn" type="button" style="flex: 1; margin-top: 0;">开始执行刷时长流程</button>
+              <button id="stopTimeBtn" class="primary-btn hidden" type="button" style="flex: 1; margin-top: 0; background: #ff7a7a; color: #fff;">🛑 终止运行</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div><p class="panel-kicker">状态面板</p><h2>运行日志</h2></div>
+            <button id="clearLogBtn" class="ghost-btn" type="button">清空日志</button>
+          </div>
+          <div id="statusLine" class="status-line">等待操作</div>
+          <pre id="logBox" class="log-box">欢迎使用 Web 控制台。</pre>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="cookieModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Cookie 分割</h3>
+        <button id="closeModalBtn" class="ghost-btn">关闭</button>
+      </div>
+      <div id="cookieList" class="cookie-list"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var js = document.createElement('script');
+      js.src = 'app.js?t=' + new Date().getTime();
+      document.body.appendChild(js);
+    })();
+  </script>
+</body>
+</html>
