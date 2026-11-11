@@ -1,190 +1,408 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welearn_helper | Web 控制台</title>
-  
-  <!-- 强制阻止 HTML 页面自身被浏览器缓存 -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Welearn Helper · WEB 刷课控制台</title>
+  <meta name="description" content="Welearn Helper Web 控制台：账号或 Cookie 登录，按单元、按小节刷完成度与学习时长。" />
+  <meta name="theme-color" content="#f3f6fa" />
+  <meta name="wl-build" content="2026.11.11-9" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <link rel="icon" href="favicon.ico" />
 
-  <script src="common.js"></script>
-
+  <!-- 主题必须在首屏渲染前确定，避免闪白 -->
   <script>
-    (function() {
-      var css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = 'styles.css?t=' + new Date().getTime();
-      document.head.appendChild(css);
+    (function () {
+      try {
+        var t = localStorage.getItem('wl_theme');
+        document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+      } catch (e) { /* 隐私模式下忽略 */ }
     })();
   </script>
+
+  <link rel="stylesheet" href="styles.css?v=2026.11.11-9" />
 </head>
 <body>
-  <div id="loadingOverlay" class="modal-overlay hidden" style="z-index: 999; flex-direction: column;">
-    <div class="spinner"></div>
-    <div style="margin-top: 20px; font-weight: bold; color: var(--accent);">正在同步处理，请勿重复操作...</div>
-  </div>
+  <a class="skip" href="#main">跳到主要内容</a>
 
-  <div id="announceModal" class="modal-overlay hidden" style="z-index: 900;">
-    <div class="modal-content" style="text-align: center; padding: 30px;">
-      <h2 style="color: var(--accent-2); margin-top: 0;">📜 网站公告</h2>
-      <p id="announceText" style="line-height: 1.6; text-align: left; max-height: 60vh; overflow-y: auto;"></p>
-      <button id="announceBtn" class="primary-btn" disabled style="opacity: 0.5; width: 100%;">我已阅读 (5s)</button>
-    </div>
-  </div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9.2 12 4l9 5.2-9 5.2-9-5.2Z" />
+            <path d="M7 11.6V16c0 1.8 2.2 3.2 5 3.2s5-1.4 5-3.2v-4.4" />
+            <path d="M21 9.5v4.2" />
+          </svg>
+        </span>
+        <div class="brand__text">
+          <div class="brand__title">Welearn Helper</div>
+          <div class="brand__sub">WE 刷课控制台 · 开源版 · 多单元 / 小节 / 并发</div>
+        </div>
+      </div>
 
-  <div class="background">
-    <span class="orb orb-a"></span><span class="orb orb-b"></span><span class="grid"></span>
-  </div>
-
-  <main class="shell">
-    <header class="hero" style="margin-bottom: 5px;">
-      <div class="visitor-banner" style="grid-column: 1 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.88rem; color: var(--muted); margin-bottom: 12px; background: rgba(255,255,255,0.03); padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); word-wrap: break-word; word-break: break-all;">
-        <span id="visitorGreeting">正在获取归属地...</span>
-        <span>
-            总人数 <strong id="statTotalUsers" style="color:#fff">0</strong> | 
-            访问 <strong id="statVisits" style="color:var(--text)">0</strong> 次 | 
-            已成功登录 <strong id="statLogins" style="color:var(--accent)">0</strong> 次 | 
-            已成功运行 <strong id="statRuns" style="color:var(--accent-2)">0</strong> 次
+      <div class="top-notice-wrap" id="topNoticeWrap" hidden>
+        <span class="top-notice" id="topNotice" role="status" aria-live="polite">
+          <span class="top-notice__dot" aria-hidden="true"></span>
+          <span id="topNoticeText"></span>
         </span>
       </div>
 
-      <div>
-        <p class="eyebrow">WE刷课控制台</p>
-        <h1>
-          <img src="favicon.ico" alt="Logo" style="height: 0.9em; width: auto; vertical-align: baseline; margin-right: 12px; border-radius: 8px;">
-          Welearn 高效学习
-        </h1>
-        <p class="lead">你是否因为WE Learn刷课而烦恼，别担心，红温炉祝您一臂之力，让您一飞冲天。</p>
-      </div>
-      <div class="hero-card">
-        <div class="hero-card__stat"><span id="statWorkflow">2</span><label>工作流</label></div>
-        <div class="hero-card__stat hero-card__stat--accent"><span id="statReady">0</span><label>已就绪</label></div>
+      <div class="topbar__actions">
+        <span class="status-pill" id="statusPill" title="当前状态">
+          <span class="status-pill__dot" aria-hidden="true"></span>
+          <span id="statusText">待命</span>
+        </span>
+        <button class="icon-btn" id="helpBtn" type="button" title="使用说明" aria-label="使用说明">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" /><path d="M9.2 9a2.9 2.9 0 0 1 5.6 0c0 1.9-2.8 2.2-2.8 4" /><path d="M12 17h.01" />
+          </svg>
+        </button>
+        <button class="icon-btn" id="themeBtn" type="button" title="切换深浅色" aria-label="切换深浅色">
+          <svg class="only-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4.5" />
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+          </svg>
+          <svg class="only-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8Z" />
+          </svg>
+        </button>
       </div>
     </header>
 
-    <section class="notice-bar">
-      <div>
-        <strong>运行提示</strong>
-        <p>支持账号密码登录和 Cookie 登录。选择课程后即可运行。</p>
-      </div>
-      <div class="notice-pill">支持多选单元 / 随机范围 / 日志导出</div>
-    </section>
-
-    <section class="layout">
-      <aside class="sidebar">
-        <button class="mode-tab is-active" data-mode="accuracy" type="button">
-          <span>刷完成度 / 正确率</span><small>对选定单元提交正确率</small>
-        </button>
-        <button class="mode-tab" data-mode="time" type="button">
-          <span>刷时长</span><small>对选定单元模拟学习时长</small>
-        </button>
-
-        <div class="sidebar-card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-             <h2 style="margin:0;">连接设置</h2>
-             <button id="logoutBtn" class="ghost-btn hidden" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);">退出登录</button>
+    <main class="layout" id="main">
+      <aside class="rail" id="rail">
+        <!-- 1. 会话 -->
+        <section class="card">
+          <div class="card__head">
+            <span class="step">01</span>
+            <h2 class="card__title">会话登录</h2>
+            <div class="card__tools">
+              <span class="tag tag--info" id="sessionBadge" hidden>已登录</span>
+              <button class="btn btn--sm btn--ghost" id="viewCookieBtn" type="button" hidden>Cookie</button>
+              <button class="btn btn--sm btn--ghost" id="logoutBtn" type="button" hidden>退出</button>
+            </div>
           </div>
-          
-          <label><span>网页登录名</span><input id="username" type="text" placeholder="请输入用户名" autocomplete="username" /></label>
-          <label><span>密码</span><input id="password" type="password" placeholder="请输入密码" autocomplete="current-password" /></label>
-          <button id="loginBtn" class="primary-btn" type="button">账号登录</button>
-          
-          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 18px 0;">
-          
-          <label><span>快捷 Cookie 登录</span><input id="cookieInput" type="text" placeholder="标准格式 Cookie" /></label>
-          <div style="display: flex; gap: 8px; margin-top: 8px;">
-             <button id="formatCookieBtn" class="ghost-btn" type="button" style="flex:1; padding: 10px 5px;">格式化 JSON</button>
-             <button id="splitCookieBtn" class="ghost-btn" type="button" style="flex:1; padding: 10px 5px;">Cookie 分割</button>
+          <div class="card__body">
+            <div class="tabs" role="tablist">
+              <button class="tab is-active" type="button" data-tab="account" role="tab" aria-selected="true">账号密码</button>
+              <button class="tab" type="button" data-tab="cookie" role="tab" aria-selected="false">Cookie 注入</button>
+            </div>
+
+            <div id="accountPane">
+              <label class="field">
+                <span class="field__label">账号</span>
+                <input id="username" type="text" placeholder="手机号" autocomplete="username" spellcheck="false" />
+              </label>
+              <label class="field">
+                <span class="field__label">密码</span>
+                <span class="input-wrap">
+                  <input id="password" type="password" placeholder="登录密码" autocomplete="current-password" />
+                  <button class="input-wrap__btn" id="togglePwd" type="button" title="显示 / 隐藏密码" aria-label="显示密码">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </span>
+              </label>
+              <button class="btn btn--primary btn--block" id="loginBtn" type="button">登录并获取课程</button>
+              <p class="hint">密码只在你的浏览器中参与登录加密，不会被保存。</p>
+            </div>
+
+            <div id="cookiePane" hidden>
+              <label class="field">
+                <span class="field__label">Cookie</span>
+                <textarea id="cookieInput" rows="4" placeholder="粘贴 welearn.sflep.com 的 Cookie，例如：idsrv=...; .AspNet.Cookies=..." spellcheck="false"></textarea>
+              </label>
+              <div class="row" style="margin-top:8px">
+                <button class="btn btn--sm grow" id="formatCookieBtn" type="button">格式化 JSON</button>
+                <button class="btn btn--sm grow" id="splitCookieBtn" type="button">解析查看</button>
+              </div>
+              <button class="btn btn--primary btn--block" id="cookieBtn" type="button">注入 Cookie 并获取课程</button>
+              <p class="hint">Cookie 只保存在你的浏览器中，非隐私模式 7 天内重新打开会自动恢复。</p>
+            </div>
+
+            <div class="form-error" id="loginError" role="alert" hidden></div>
           </div>
-          <button id="cookieBtn" class="primary-btn" type="button" style="background: linear-gradient(135deg, #f2b705, #e08b00); margin-top: 8px;">注入 Cookie 登录</button>
-        </div>
+        </section>
+
+        <!-- 2. 课程 -->
+        <section class="card">
+          <div class="card__head">
+            <span class="step">02</span>
+            <h2 class="card__title">选择课程</h2>
+            <div class="card__tools">
+              <span class="card__sub" id="courseSummary">未加载</span>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="row">
+              <select class="grow" id="courseSelect" aria-label="课程列表">
+                <option value="">— 请先登录 —</option>
+              </select>
+              <button class="btn btn--sm" id="refreshBtn" type="button" title="刷新课程与单元">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" />
+                </svg>
+                刷新
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. 单元 / 小节 -->
+        <section class="card">
+          <div class="card__head">
+            <span class="step">03</span>
+            <h2 class="card__title">单元与小节</h2>
+            <div class="card__tools">
+              <label class="check check--strong" for="allUnits">
+                <input type="checkbox" id="allUnits" /> 全部单元
+              </label>
+            </div>
+          </div>
+          <div class="card__body">
+            <p class="hint" style="margin-top:0">勾选单元后会加载小节；不勾小节 = 刷整个单元。未开放的小节会自动跳过。</p>
+            <div class="tree" id="unitTree">
+              <div class="tree__empty">登录并选择课程后显示单元</div>
+            </div>
+          </div>
+        </section>
+
       </aside>
 
-      <section class="workspace">
-        
-        <div class="panel">
-          <div class="panel-header" style="margin-bottom: 5px;">
-            <div><p class="panel-kicker">第一步</p><h2>我的课程</h2></div>
-            <div id="courseSummary" class="summary-box">尚未加载</div>
+      <section class="stage" id="stage">
+        <!-- 4. 参数（桌面端位于右栏顶部，手机端在单元之后） -->
+        <section class="card" id="taskCard">
+          <div class="card__head">
+            <span class="step">04</span>
+            <h2 class="card__title">任务参数</h2>
           </div>
-          <div id="courseList" class="list-box empty-state">等待登录后加载课程...</div>
+          <div class="card__body">
+            <div class="task-grid">
+              <div class="field">
+                <span class="field__label">任务模式</span>
+                <div class="segmented" role="tablist" aria-label="任务模式">
+                  <button class="seg is-active" type="button" data-mode="accuracy" role="tab" aria-selected="true">刷完成度正确率</button>
+                  <button class="seg" type="button" data-mode="time" role="tab" aria-selected="false">刷学习时长</button>
+                </div>
+              </div>
+              <div class="field">
+                <span class="field__label" id="paramLabel">正确率（0–99，单个值或区间）</span>
+                <input id="paramInput" type="text" inputmode="numeric" placeholder="例如 96 或 94,100" autocomplete="off" spellcheck="false" />
+                <div class="presets" id="presetRow">
+                  <span class="presets__label">常用：</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="wait-note" id="waitNote" hidden>
+              <strong>⏳ 刷时长必须真实等待</strong>
+              <span>WeLearn 按“开始 → 结束”的真实时间计算学习时长，提前提交只会记录 0 秒。等待期间请保持网页前台运行，不能关闭浏览器。</span>
+            </div>
+
+            <details class="advanced">
+              <summary>高级选项</summary>
+              <div class="advanced__body">
+                <label class="field" id="concurrencyField">
+                  <span class="field__label">并发章节数（1–50）</span>
+                  <input id="concurrency" type="number" min="1" max="50" step="1" value="10" />
+                </label>
+                <label class="check" id="skipDoneField">
+                  <input type="checkbox" id="skipDone" checked />
+                  仅处理未完成小节（取消可覆盖已有成绩）
+                </label>
+                <p class="hint" style="margin-top:0">并发越大完成越快，建议 10–20；过高可能触发平台限流或超过服务器 PHP 进程数。实际并发还受浏览器同源连接数限制。</p>
+              </div>
+            </details>
+
+            <p class="hint" style="margin-top:10px">不想逐项设置？可直接点「一键完成」：正确率 96–100%，时长 480–580 秒。注意：时长阶段必须真实等待，不能提前提交。</p>
+          </div>
+        </section>
+
+        <div class="card runbar" id="runBar">
+          <div class="runbar__target">
+            <span class="k">目标</span>
+            <span class="target-text" id="targetText">未选择单元</span>
+          </div>
+          <div class="progress" aria-hidden="true">
+            <div class="progress__track"><div class="progress__fill" id="progressFill"></div></div>
+            <span class="progress__text" id="progressText">0%</span>
+          </div>
+          <span class="runbar__eta" id="etaText"></span>
+          <div class="runbar__actions">
+            <button class="btn btn--oneclick" id="oneClickBtn" type="button" disabled title="无需填写参数：正确率 96–100%，时长 480–580 秒">一键完成</button>
+            <button class="btn btn--run" id="startBtn" type="button" disabled>开始任务</button>
+            <button class="btn btn--danger" id="stopBtn" type="button" hidden>停止</button>
+          </div>
+          <p class="run-tip" id="runTip" hidden>⚠️ 任务运行中：请保持浏览器开启，不要关闭页面、锁屏或切到后台；关闭会中断任务。</p>
         </div>
 
-        <div class="panel" id="accuracyPanel">
-          <div class="panel-header">
-            <div><p class="panel-kicker">当前模式</p><h2>刷完成度 / 正确率</h2></div>
-            <span class="badge">accuracy</span>
+        <section class="card console" id="consoleEl">
+          <div class="console__head">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span class="console__title">运行日志</span>
+            <span class="status-line" id="statusLine">等待操作</span>
+            <div class="console__tools">
+              <label class="check" title="新日志自动滚动到底部">
+                <input type="checkbox" id="autoScroll" checked /> 自动滚动
+              </label>
+              <button class="btn btn--sm" id="exportLogBtn" type="button">导出</button>
+              <button class="btn btn--sm" id="clearLogBtn" type="button">清空</button>
+            </div>
           </div>
-
-          <div class="grid-form">
-            <label class="wide"><span>单元编号 (按住 Ctrl 多选)</span><select id="accuracyUnits" multiple size="4" style="height: 100px;"><option value="-1">请先在上方加载课程</option></select></label>
-            <label class="wide">
-              <span>正确率模式</span>
-              <select id="accuracyMode"><option value="range">随机范围</option><option value="fixed">固定正确率</option></select>
-            </label>
-            <label id="accuracyLabelA"><span id="accuracyTextA">固定值</span><input id="accuracyValueA" type="number" /></label>
-            <label id="accuracyLabelB" class="hidden"><span>随机上限</span><input id="accuracyValueB" type="number" /></label>
-          </div>
-
-          <div style="display: flex; gap: 10px; margin-top: 14px;">
-              <button id="runAccuracyBtn" class="primary-btn" type="button" style="flex: 1; margin-top: 0;">开始执行正确率流程</button>
-              <button id="stopAccuracyBtn" class="primary-btn hidden" type="button" style="flex: 1; margin-top: 0; background: #ff7a7a; color: #fff;">🛑 终止运行</button>
-          </div>
-        </div>
-
-        <div class="panel hidden" id="timePanel">
-          <div class="panel-header">
-            <div><p class="panel-kicker">当前模式</p><h2>刷时长</h2></div>
-            <span class="badge">time</span>
-          </div>
-
-          <div class="grid-form">
-            <label class="wide"><span>单元编号 (按住 Ctrl 多选)</span><select id="timeUnits" multiple size="4" style="height: 100px;"><option value="-1">请先在上方加载课程</option></select></label>
-            <label class="wide">
-              <span>时长模式</span>
-              <select id="timeMode"><option value="range">随机范围 (秒)</option><option value="fixed">固定时长 (秒)</option></select>
-            </label>
-            <label id="timeLabelA"><span id="timeTextA">固定值</span><input id="timeValueA" type="number" /></label>
-            <label id="timeLabelB" class="hidden"><span>随机上限</span><input id="timeValueB" type="number" /></label>
-          </div>
-
-          <div style="display: flex; gap: 10px; margin-top: 14px;">
-              <button id="runTimeBtn" class="primary-btn" type="button" style="flex: 1; margin-top: 0;">开始执行刷时长流程</button>
-              <button id="stopTimeBtn" class="primary-btn hidden" type="button" style="flex: 1; margin-top: 0; background: #ff7a7a; color: #fff;">🛑 终止运行</button>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <div><p class="panel-kicker">状态面板</p><h2>运行日志</h2></div>
-            <button id="clearLogBtn" class="ghost-btn" type="button">清空日志</button>
-          </div>
-          <div id="statusLine" class="status-line">等待操作</div>
-          <pre id="logBox" class="log-box">欢迎使用 Web 控制台。</pre>
-        </div>
+          <div class="log" id="logBox" role="log" aria-live="polite" aria-label="运行日志"></div>
+        </section>
       </section>
-    </section>
-  </main>
+    </main>
 
-  <div id="cookieModal" class="modal-overlay hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Cookie 分割</h3>
-        <button id="closeModalBtn" class="ghost-btn">关闭</button>
+    <footer class="footer">
+      <div>
+        原项目 <a href="https://github.com/Avenshy" target="_blank" rel="noreferrer">Avenshy</a> &amp; SSmJaE ·
+        维护 <a href="https://github.com/YZBRH/" target="_blank" rel="noreferrer">YZBRH</a> /
+        <a href="https://github.com/lxbsdsg/" target="_blank" rel="noreferrer">lxbsdsg</a>
       </div>
-      <div id="cookieList" class="cookie-list"></div>
+      <div>基于 GPLv3 开源 · 仅供学习交流 · 请遵守学校规定</div>
+    </footer>
+  </div>
+
+  <!-- 运行中的大号倒计时：剩余时间 + 禁止关闭浏览器的强提醒 -->
+  <div class="countdown-card" id="countdownCard" hidden role="dialog" aria-live="polite">
+    <div class="countdown-card__head">
+      <span class="countdown-card__phase" id="countdownPhase">任务运行中</span>
+      <button class="countdown-card__min" id="countdownMinBtn" type="button" aria-label="收起倒计时">—</button>
+    </div>
+    <div class="countdown-card__time" id="countdownTime">00:00</div>
+    <div class="countdown-card__label" id="countdownLabel">预计剩余时间</div>
+    <div class="countdown-card__bar"><div class="countdown-card__fill" id="countdownFill"></div></div>
+    <div class="countdown-card__meta" id="countdownMeta">进度 0/0</div>
+    <div class="countdown-card__wait" id="countdownWait">刷时长必须真实等待：WeLearn 按开始 / 结束时间计时，提前提交只会记录 0 秒</div>
+    <p class="countdown-card__warn">⚠️ 刷课期间禁止关闭浏览器，关闭后无法向 WeLearn 服务器报告学习数据，请确保网页保持前台运行！！！</p>
+    <div class="countdown-card__actions">
+      <button class="btn btn--danger btn--sm" id="countdownStopBtn" type="button">停止任务</button>
+      <button class="btn btn--sm" id="countdownHideBtn" type="button">收起</button>
+    </div>
+  </div>
+  <button class="countdown-pill" id="countdownPill" type="button" hidden>
+    <span aria-hidden="true">⏳</span>
+    <strong id="countdownPillTime">00:00</strong>
+    <span class="countdown-pill__more">展开</span>
+  </button>
+
+  <!-- 手机端常驻日志条：点击展开完整日志，不用再滑到页面底部 -->
+  <div class="mobile-log" id="mobileLog">
+    <button class="mobile-log__main" id="mobileLogBtn" type="button" aria-label="展开运行日志">
+      <span class="mobile-log__dot" aria-hidden="true"></span>
+      <span class="mobile-log__text">
+        <span class="mobile-log__status" id="mobileLogStatus">待命</span>
+        <span class="mobile-log__last" id="mobileLogLast">登录 / 任务日志会显示在这里</span>
+      </span>
+      <span class="mobile-log__more">展开</span>
+    </button>
+    <button class="mobile-log__stop" id="mobileStopBtn" type="button" hidden>停止</button>
+  </div>
+
+  <!-- 手机端完整日志面板 -->
+  <div class="modal" id="logModal" hidden>
+    <div class="modal__panel modal__panel--log" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
+      <div class="modal__head">
+        <h2 class="modal__title" id="logModalTitle">运行日志</h2>
+        <span class="status-line" id="logModalStatus"></span>
+        <button class="icon-btn modal__close" type="button" data-close="logModal" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="modal__body modal__body--log">
+        <div class="log log--sheet" id="logSheet" role="log" aria-live="polite"></div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--sm" id="logSheetExport" type="button">导出日志</button>
+        <button class="btn btn--sm" id="logSheetClear" type="button">清空</button>
+        <button class="btn btn--primary btn--sm" type="button" data-close="logModal">关闭</button>
+      </div>
     </div>
   </div>
 
-  <script>
-    (function() {
-      var js = document.createElement('script');
-      js.src = 'app.js?t=' + new Date().getTime();
-      document.body.appendChild(js);
-    })();
-  </script>
+  <!-- 任务完成置顶弹窗 -->
+  <div class="modal done-modal" id="doneModal" hidden>
+    <div class="modal__panel done-panel" id="donePanel" role="dialog" aria-modal="true" aria-labelledby="doneTitle">
+      <div class="done-icon" id="doneIcon">✓</div>
+      <h2 class="done-title" id="doneTitle">任务完成</h2>
+      <p class="done-sub" id="doneSub"></p>
+      <div class="done-body" id="doneBody"></div>
+      <p class="done-note">ℹ️ 刷时长的数据 WeLearn 需要 1–15 分钟更新，刷新课程/小节后如果暂时没看到变化，请稍等再查看，不是没有生效。</p>
+      <div class="modal__foot done-foot">
+        <button class="btn btn--sm" id="doneLogBtn" type="button">查看日志</button>
+        <button class="btn btn--primary" type="button" data-close="doneModal">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 使用说明 -->
+  <div class="modal" id="helpModal" hidden>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal__head">
+        <h2 class="modal__title" id="helpTitle">使用说明</h2>
+        <button class="icon-btn modal__close" type="button" data-close="helpModal" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <h3>1 · 登录</h3>
+        <p>推荐使用手机号 + 密码登录；也可以在浏览器里复制登录后的 Cookie 粘贴注入。Cookie 只保存在你的浏览器，不会上传到服务器。</p>
+
+        <h3>2 · 选择课程与单元</h3>
+        <p>登录后自动读取课程列表。选择课程会加载单元；勾选单元后展开小节。只勾选部分小节就只刷这些小节，不勾小节则刷整个单元。</p>
+
+        <h3>3 · 参数格式</h3>
+        <ul>
+          <li>正确率：<code>85</code> 表示固定 85%；<code>70,90</code> 表示 70%–90% 随机。</li>
+          <li>学习时长：<code>60</code> 表示每章节 60 秒；<code>30,90</code> 表示 30–90 秒随机。</li>
+          <li>安全起见，固定正确率不允许设置为 100%，随机区间上限可到 100%。</li>
+        </ul>
+
+        <h3>4 · 运行与停止</h3>
+        <p>任务在浏览器中执行，日志实时输出，可随时点击“停止”。结束后会自动刷新课程与小节的完成状态。请保持页面开启；即使切到后台，时长任务也会按真实时间结算。</p>
+
+        <h3>5 · 外观</h3>
+        <p>右上角按钮切换浅色 / 深色，默认浅色，选择会在本地记住。</p>
+
+        <h3>声明</h3>
+        <p>本项目仅供编程学习与技术研究，请勿用于代刷盈利。使用产生的风险由使用者自行承担。</p>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--primary" type="button" data-close="helpModal">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cookie 解析 -->
+  <div class="modal" id="cookieModal" hidden>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="cookieTitle">
+      <div class="modal__head">
+        <h2 class="modal__title" id="cookieTitle">Cookie 解析</h2>
+        <button class="icon-btn modal__close" type="button" data-close="cookieModal" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="cookie-list" id="cookieList"></div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn" type="button" data-close="cookieModal">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <noscript>
+    <div style="padding:24px;text-align:center">本控制台需要启用 JavaScript 才能运行。</div>
+  </noscript>
+
+  <script src="common.js?v=2026.11.11-9"></script>
+  <script src="app.js?v=2026.11.11-9"></script>
 </body>
 </html>
